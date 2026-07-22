@@ -5,6 +5,7 @@ services:
   - type: web
     name: projectnest-api
     runtime: python
+    plan: free
     rootDir: backend
     buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate
     startCommand: gunicorn config.wsgi:application
@@ -15,10 +16,11 @@ services:
         generateValue: true
       - key: DEBUG
         value: "False"
+      - key: ALLOWED_HOSTS
+        value: .onrender.com
       - key: GROQ_API_KEY
         sync: false
       - key: EMAIL_HOST_USER
         sync: false
       - key: EMAIL_HOST_PASSWORD
         sync: false
-
