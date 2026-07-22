@@ -1,5 +1,6 @@
 from decimal import Decimal
 from django.contrib.auth.models import User
+from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.utils.text import slugify
 from store.models import Category, Product
@@ -39,7 +40,10 @@ class Command(BaseCommand):
                     "image_url": f"https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=900&q=80&sig={c_index * 10 + p_index}",
                     "featured": p_index == 0, "active": True,
                 })
-        admin, created = User.objects.get_or_create(username="admin", defaults={"email": "admin@projectnest.local", "is_staff": True, "is_superuser": True})
-        if created: admin.set_password("ChangeMe123!"); admin.save()
-        self.stdout.write(self.style.SUCCESS("Seeded 10 categories and 100 products. Development admin: admin / ChangeMe123! (change immediately)."))
-
+        if settings.DEBUG:
+            admin, created = User.objects.get_or_create(username="admin", defaults={"email": "admin@projectnest.local", "is_staff": True, "is_superuser": True})
+            if created: admin.set_password("ChangeMe123!"); admin.save()
+            admin_note = " Development admin: admin / ChangeMe123! (change immediately)."
+        else:
+            admin_note = " No production administrator was created."
+        self.stdout.write(self.style.SUCCESS(f"Seeded 10 categories and 100 products.{admin_note}"))

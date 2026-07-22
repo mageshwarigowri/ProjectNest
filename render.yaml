@@ -7,7 +7,7 @@ services:
     runtime: python
     plan: free
     rootDir: backend
-    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate && python manage.py seed_store
     startCommand: gunicorn config.wsgi:application
     envVars:
       - key: DATABASE_URL
@@ -18,6 +18,8 @@ services:
         value: "False"
       - key: ALLOWED_HOSTS
         value: .onrender.com
+      - key: FRONTEND_ORIGIN_REGEXES
+        value: ^https://.*\.vercel\.app$
       - key: GROQ_API_KEY
         sync: false
       - key: EMAIL_HOST_USER

@@ -44,6 +44,7 @@ REST_FRAMEWORK = {
 }
 SIMPLE_JWT = {"ACCESS_TOKEN_LIFETIME": timedelta(hours=1), "REFRESH_TOKEN_LIFETIME": timedelta(days=7)}
 CORS_ALLOWED_ORIGINS = [x.strip() for x in os.getenv("FRONTEND_URLS", os.getenv("FRONTEND_URL", "http://localhost:5173,http://127.0.0.1:5173")).split(",") if x.strip()]
+CORS_ALLOWED_ORIGIN_REGEXES = [x.strip() for x in os.getenv("FRONTEND_ORIGIN_REGEXES", "").split(",") if x.strip()]
 CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend" if os.getenv("EMAIL_HOST_USER") else "django.core.mail.backends.console.EmailBackend"
 EMAIL_HOST, EMAIL_PORT, EMAIL_USE_TLS = "smtp.gmail.com", 587, True
