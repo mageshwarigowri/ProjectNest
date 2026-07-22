@@ -2,8 +2,8 @@ import re
 import requests
 from django.conf import settings
 from django.core.cache import cache
-from django.db.models import Q
-from .models import Product
+from django.db.models import Count, Q
+from .models import Category, Product
 
 STORE_TERMS = {
     "product", "project", "kit", "catalog", "category", "price", "cost", "discount", "offer",
@@ -23,6 +23,33 @@ def _is_store_question(message):
     if words & STORE_TERMS: return True
     return Product.objects.filter(Q(name__icontains=message[:80]) | Q(category__name__icontains=message[:80])).exists()
 
+def _category_list_answer(message):
+    words = set(re.findall(r"[a-z0-9]+", message.lower()))
+    if "category" not in words and "categories" not in words:
+        return None
+
+    categories = list(
+        Category.objects.annotate(
+            active_product_count=Count("products", filter=Q(products__active=True))
+        )
+        .filter(active_product_count__gt=0)
+        .order_by("name")
+    )
+    if not categories:
+        return None
+
+    summary = ", ".join(
+        f"{category.name} ({category.active_product_count} projects)"
+        for category in categories
+    )
+    return {
+        "answer": f"ProjectNest has {len(categories)} project categories: {summary}.",
+        "links": [
+            {"label": category.name, "url": f"/shop?category={category.slug}"}
+            for category in categories
+        ],
+    }
+
 def answer(message, session_id, authenticated=False):
     if not _is_store_question(message):
         return {"answer": "I can only help with ProjectNest products, catalog, prices, stock, discounts, shipping, returns, payments, and reward coins. Try asking ‘Which robotics kits are in stock?’", "links": []}
@@ -33,6 +60,11 @@ def answer(message, session_id, authenticated=False):
     if count >= limit:
         return {"answer": "You’ve reached the guest chat limit. Please log in to continue asking ProjectNest questions.", "limit_reached": True, "links": []}
     cache.set(key, count + 1, timeout=60 * 60)
+
+    category_answer = _category_list_answer(message)
+    if category_answer:
+        category_answer["remaining"] = limit - count - 1
+        return category_answer
 
     terms = [w for w in re.findall(r"[a-z0-9]+", message.lower()) if len(w) > 2][:8]
     query = Q()
@@ -55,4 +87,3 @@ def answer(message, session_id, authenticated=False):
     )
     response.raise_for_status()
     return {"answer": response.json()["choices"][0]["message"]["content"], "links": links, "remaining": limit - count - 1}
-
