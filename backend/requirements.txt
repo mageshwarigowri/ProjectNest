@@ -1,0 +1,16 @@
+Django==5.2.4
+djangorestframework==3.16.0
+djangorestframework-simplejwt==5.5.0
+django-cors-headers==4.7.0
+dj-database-url==2.3.0
+python-dotenv==1.1.1
+psycopg[binary]==3.2.9
+Pillow==11.3.0
+requests==2.32.4
+reportlab==4.4.2
+gunicorn==23.0.0
+whitenoise==6.9.0
+cloudinary==1.44.1
+django-cloudinary-storage==0.3.0
+razorpay==1.4.2
+

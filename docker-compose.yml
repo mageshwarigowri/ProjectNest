@@ -1,0 +1,37 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: projectnest
+      POSTGRES_USER: projectnest
+      POSTGRES_PASSWORD: local-projectnest-password
+    volumes: [projectnest_db:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U projectnest"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  backend:
+    build: ./backend
+    ports: ["8000:8000"]
+    environment:
+      DEBUG: "True"
+      SECRET_KEY: local-docker-secret-change-me
+      DATABASE_URL: postgresql://projectnest:local-projectnest-password@db:5432/projectnest
+      ALLOWED_HOSTS: localhost,127.0.0.1,backend
+      FRONTEND_URLS: http://localhost,http://127.0.0.1
+    env_file:
+      - path: ./backend/.env
+        required: false
+    depends_on:
+      db: {condition: service_healthy}
+    command: sh -c "python manage.py migrate && python manage.py seed_store && gunicorn config.wsgi:application --bind 0.0.0.0:8000"
+  frontend:
+    build:
+      context: ./frontend
+      args: {VITE_API_URL: http://localhost:8000/api}
+    ports: ["80:80"]
+    depends_on: [backend]
+volumes:
+  projectnest_db:
+

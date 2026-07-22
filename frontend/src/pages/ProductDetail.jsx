@@ -1,0 +1,12 @@
+import { useEffect, useState } from 'react'
+import { ArrowLeft, Check, PackageCheck, ShieldCheck, ShoppingBag, Star, Truck } from 'lucide-react'
+import { Link, useParams } from 'react-router-dom'
+import api from '../api'
+import { useStore } from '../StoreContext'
+
+export default function ProductDetail() {
+  const { slug } = useParams(); const { addToCart } = useStore(); const [product, setProduct] = useState(null); const [qty, setQty] = useState(1)
+  useEffect(() => { api.get(`/products/${slug}/`).then(r => setProduct(r.data)) }, [slug])
+  if (!product) return <div className="loader page" />
+  return <div className="container page product-detail"><Link to="/shop" className="back"><ArrowLeft /> Back to projects</Link><div className="detail-grid"><div className="detail-image"><img src={product.image_url} alt={product.name} /><span className={`stock ${product.stock_label.toLowerCase().replaceAll(' ', '-')}`}>{product.stock_label}</span></div><div className="detail-copy"><span className="kicker">{product.category_name} · {product.sku}</span><h1>{product.name}</h1><div className="rating"><Star fill="currentColor" /> <b>{product.rating}</b> <span>from {product.review_count} ratings</span></div><p className="lead">{product.short_description}</p><div className="detail-price"><strong>₹{Number(product.sale_price).toLocaleString('en-IN')}</strong>{product.discount_percent > 0 && <><del>₹{Number(product.price).toLocaleString('en-IN')}</del><span>Save {product.discount_percent}%</span></>}</div><p className="tax-note">Inclusive of all applicable taxes</p><div className="buy-row"><div className="stepper"><button onClick={() => setQty(Math.max(1, qty - 1))}>−</button><b>{qty}</b><button onClick={() => setQty(qty + 1)}>+</button></div><button className="button primary grow" onClick={() => addToCart(product, qty)} disabled={product.stock_label === 'Out of stock'}><ShoppingBag /> Add to cart</button></div><div className="detail-benefits"><span><Truck /> Free delivery above ₹1,999</span><span><ShieldCheck /> Quality-checked components</span><span><PackageCheck /> Complete guided kit</span></div></div></div><div className="description-panel"><div><span className="kicker">What you’ll build</span><h2>Project overview</h2><p>{product.description}</p></div><ul><li><Check /> Essential component set</li><li><Check /> Structured source code</li><li><Check /> Step-by-step setup guide</li><li><Check /> Testing checklist</li></ul></div></div>
+}

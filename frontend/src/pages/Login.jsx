@@ -1,0 +1,12 @@
+import { useState } from 'react'
+import { ArrowRight, LockKeyhole, UserRound } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import api from '../api'
+import { useStore } from '../StoreContext'
+
+export default function Login() {
+  const { login } = useStore(); const navigate = useNavigate(); const [register, setRegister] = useState(false); const [form, setForm] = useState({ username: '', email: '', password: '' }); const [error, setError] = useState(''); const [busy, setBusy] = useState(false)
+  const submit = async e => { e.preventDefault(); setBusy(true); setError(''); try { if (register) await api.post('/auth/register/', form); await login(form.username, form.password); navigate('/account') } catch (e) { setError(e.response?.data?.detail || Object.values(e.response?.data || {}).flat().join(' ') || 'Could not continue.') } finally { setBusy(false) } }
+  return <div className="auth-page"><div className="auth-art"><div className="auth-quote"><span>“</span><h2>The best way to understand technology is to build with it.</h2><p>Join thousands of curious makers turning ideas into working projects.</p></div></div><form className="auth-card" onSubmit={submit}><div className="auth-icon">{register ? <UserRound /> : <LockKeyhole />}</div><span className="kicker">{register ? 'Join ProjectNest' : 'Welcome back'}</span><h1>{register ? 'Create your account' : 'Continue building'}</h1><p>{register ? 'Save orders, earn reward coins, and unlock more assistant messages.' : 'Sign in to view orders, invoices, tracking, and reward coins.'}</p><label>Username<input required autoComplete="username" value={form.username} onChange={e => setForm({...form, username:e.target.value})} /></label>{register && <label>Email<input required type="email" value={form.email} onChange={e => setForm({...form, email:e.target.value})} /></label>}<label>Password<input required minLength={8} type="password" autoComplete={register ? 'new-password' : 'current-password'} value={form.password} onChange={e => setForm({...form, password:e.target.value})} /></label>{error && <p className="form-error">{error}</p>}<button className="button primary wide" disabled={busy}>{busy ? 'Please wait…' : register ? 'Create account' : 'Sign in'} <ArrowRight /></button><button type="button" className="switch-auth" onClick={() => { setRegister(!register); setError('') }}>{register ? 'Already have an account? Sign in' : 'New here? Create an account'}</button></form></div>
+}
+
