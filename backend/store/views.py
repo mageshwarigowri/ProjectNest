@@ -2,8 +2,8 @@ import csv
 import io
 from decimal import Decimal
 
-from django.conf import settings
-from django.core.mail import send_mail
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from django.db import transaction
 from django.db.models import Count, Q
 from django.http import FileResponse, HttpResponse
@@ -14,7 +14,8 @@ from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 
 from . import chatbot
-from .models import CartItem, Category, Order, OrderItem, Product, ShipmentEvent
+from .emails import send_email_async
+from .models import CartItem, Category, NewsletterSubscription, Order, OrderItem, Product, ShipmentEvent
 from .serializers import CategorySerializer, ProductSerializer, RegisterSerializer, UserSerializer, CartSerializer, CartItemSerializer, OrderSerializer
 
 class IsInventoryStaff(permissions.BasePermission):
@@ -76,10 +77,13 @@ def cart(request):
 def checkout(request):
     data = request.data
     items_data = data.get("items", [])
-    if request.user.is_authenticated and not items_data:
-        items = [(x.product, x.quantity) for x in request.user.cart.items.select_related("product")]
-    else:
-        items = [(Product.objects.get(pk=x["product_id"], active=True), int(x["quantity"])) for x in items_data]
+    try:
+        if request.user.is_authenticated and not items_data:
+            items = [(x.product, x.quantity) for x in request.user.cart.items.select_related("product")]
+        else:
+            items = [(Product.objects.get(pk=x["product_id"], active=True), int(x["quantity"])) for x in items_data]
+    except (KeyError, TypeError, ValueError, Product.DoesNotExist):
+        return Response({"detail": "One or more cart items are invalid or unavailable."}, status=400)
     if not items: return Response({"detail": "Your cart is empty."}, status=400)
     required = ("customer_name", "email", "phone", "address", "city", "state", "postal_code")
     missing = [field for field in required if not data.get(field)]
@@ -102,8 +106,34 @@ def checkout(request):
             request.user.profile.reward_coins -= coins; request.user.profile.save(update_fields=["reward_coins"])
             request.user.cart.items.all().delete()
         ShipmentEvent.objects.create(order=order, status="Order placed", note="We received your order.")
-    send_mail(f"Order {order.number} confirmed", f"Thanks for ordering from ProjectNest. Your total is ₹{order.total}. Track order: {order.number}", settings.DEFAULT_FROM_EMAIL, [order.email], fail_silently=True)
+    send_email_async(
+        f"Order {order.number} confirmed",
+        f"Thanks for ordering from ProjectNest. Your total is ₹{order.total}. Track order: {order.number}",
+        [order.email],
+    )
     return Response(OrderSerializer(order).data, status=201)
+
+@api_view(["POST"])
+@permission_classes([permissions.AllowAny])
+def subscribe(request):
+    email = str(request.data.get("email", "")).strip().lower()
+    try:
+        validate_email(email)
+    except ValidationError:
+        return Response({"detail": "Enter a valid email address."}, status=400)
+
+    subscription, created = NewsletterSubscription.objects.get_or_create(email=email, defaults={"active": True})
+    if not subscription.active:
+        subscription.active = True
+        subscription.save(update_fields=["active"])
+        created = True
+    send_email_async(
+        "Welcome to ProjectNest",
+        "You are subscribed to ProjectNest project drops and practical learning updates.",
+        [email],
+    )
+    message = "Check your inbox for the ProjectNest welcome email."
+    return Response({"message": message}, status=201 if created else 200)
 
 class OrderViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = OrderSerializer

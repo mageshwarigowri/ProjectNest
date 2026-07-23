@@ -15,6 +15,14 @@ class Category(models.Model):
     def __str__(self): return self.name
 
 
+class NewsletterSubscription(models.Model):
+    email = models.EmailField(unique=True)
+    active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self): return self.email
+
+
 class Product(models.Model):
     category = models.ForeignKey(Category, related_name="products", on_delete=models.CASCADE)
     name = models.CharField(max_length=160)

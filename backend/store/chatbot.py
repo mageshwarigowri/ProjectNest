@@ -2,7 +2,7 @@ import re
 import requests
 from django.conf import settings
 from django.core.cache import cache
-from django.db.models import Count, Q
+from django.db.models import Count, F, Q
 from .models import Category, Product
 
 STORE_TERMS = {
@@ -50,6 +50,29 @@ def _category_list_answer(message):
         ],
     }
 
+def _inventory_status_answer(message):
+    normalized = " ".join(re.findall(r"[a-z0-9]+", message.lower()))
+    if "out of stock" in normalized:
+        label = "out-of-stock"
+        products = Product.objects.filter(active=True, stock=0)
+    elif "low stock" in normalized:
+        label = "low-stock"
+        products = Product.objects.filter(active=True, stock__gt=0, stock__lte=F("low_stock_threshold"))
+    else:
+        return None
+
+    products = list(products.select_related("category").order_by("category__name", "name"))
+    if not products:
+        return {"answer": f"There are currently no {label} items.", "links": []}
+
+    shown = products[:10]
+    names = ", ".join(f"{product.name} ({product.category.name})" for product in shown)
+    suffix = f" Showing 10 of {len(products)}." if len(products) > 10 else ""
+    return {
+        "answer": f"ProjectNest has {len(products)} {label} items: {names}.{suffix}",
+        "links": [{"label": product.name, "url": f"/products/{product.slug}"} for product in shown],
+    }
+
 def answer(message, session_id, authenticated=False):
     if not _is_store_question(message):
         return {"answer": "I can only help with ProjectNest products, catalog, prices, stock, discounts, shipping, returns, payments, and reward coins. Try asking ‘Which robotics kits are in stock?’", "links": []}
@@ -65,6 +88,11 @@ def answer(message, session_id, authenticated=False):
     if category_answer:
         category_answer["remaining"] = limit - count - 1
         return category_answer
+
+    inventory_answer = _inventory_status_answer(message)
+    if inventory_answer:
+        inventory_answer["remaining"] = limit - count - 1
+        return inventory_answer
 
     terms = [w for w in re.findall(r"[a-z0-9]+", message.lower()) if len(w) > 2][:8]
     query = Q()
